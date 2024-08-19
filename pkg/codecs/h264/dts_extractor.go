@@ -99,6 +99,7 @@ func (d *DTSExtractor) extractInner(au [][]byte, pts time.Duration) (time.Durati
 
 	for _, nalu := range au {
 		typ := NALUType(nalu[0] & 0x1F)
+		fmt.Printf("NALU Type: %v\n", typ) 
 		switch typ {
 		case NALUTypeSPS:
 			if !bytes.Equal(d.sps, nalu) {
@@ -120,6 +121,9 @@ func (d *DTSExtractor) extractInner(au [][]byte, pts time.Duration) (time.Durati
 
 		case NALUTypeNonIDR:
 			nonIDR = nalu
+       
+		case NALUTypeSEI, NALUTypePrefixNALU:
+			continue
 		}
 	}
 
