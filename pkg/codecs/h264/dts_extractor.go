@@ -17,11 +17,6 @@ const (
 		(3 * 4 + 2 + 2) * 4 / 3 = 22
 	*/
 	maxBytesToGetPOC = 22
- 	NALUTypeSPS        = 7  // Sequence Parameter Set
-    	NALUTypeIDR        = 5  // Instantaneous Decoder Refresh
-    	NALUTypeNonIDR     = 1  // Non-IDR Picture
-    	NALUTypeSEI        = 6  // Supplemental Enhancement Information
-    	NALUTypePrefixNALU = 14 // Prefix NALU
 )
 
 func getPictureOrderCount(buf []byte, sps *SPS, idr bool) (uint32, error) {
@@ -101,10 +96,17 @@ func NewDTSExtractor() *DTSExtractor {
 func (d *DTSExtractor) extractInner(au [][]byte, pts time.Duration) (time.Duration, bool, error) {
 	var idr []byte
 	var nonIDR []byte
+	// a value of 00 indicates that the content of the NAL unit is not
+	// used to reconstruct reference pictures for inter picture
+	// prediction.  Such NAL units can be discarded without risking
+	// the integrity of the reference pictures.  Values greater than
+	// 00 indicate that the decoding of the NAL unit is required to
+	// maintain the integrity of the reference pictures.
+	var nonZeroNalRefIdFound = false
 
 	for _, nalu := range au {
 		typ := NALUType(nalu[0] & 0x1F)
-		fmt.Printf("NALU Type: %v\n", typ) 
+		nonZeroNalRefIdFound = nonZeroNalRefIdFound || (uint8(nalu[0]&0x60) > 0)
 		switch typ {
 		case NALUTypeSPS:
 			if !bytes.Equal(d.sps, nalu) {
@@ -126,9 +128,6 @@ func (d *DTSExtractor) extractInner(au [][]byte, pts time.Duration) (time.Durati
 
 		case NALUTypeNonIDR:
 			nonIDR = nalu
-       
-		case NALUTypeSEI, NALUTypePrefixNALU:
-			continue
 		}
 	}
 
@@ -144,6 +143,7 @@ func (d *DTSExtractor) extractInner(au [][]byte, pts time.Duration) (time.Durati
 		return 0, false, fmt.Errorf("pic_order_cnt_type = 1 is not supported yet")
 	}
 
+	// Implicit processing of PicOrderCountType 0
 	switch {
 	case idr != nil:
 		d.pauseDTS = 0
@@ -210,6 +210,9 @@ func (d *DTSExtractor) extractInner(au [][]byte, pts time.Duration) (time.Durati
 		}
 
 		return d.prevDTS + (pts-d.prevDTS)/time.Duration(pocDiff+d.reorderedFrames+1), false, nil
+
+	case !nonZeroNalRefIdFound:
+		return d.prevDTS, false, nil
 
 	default:
 		return 0, false, fmt.Errorf("access unit doesn't contain an IDR or non-IDR NALU")
