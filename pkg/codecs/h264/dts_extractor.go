@@ -17,6 +17,11 @@ const (
 		(3 * 4 + 2 + 2) * 4 / 3 = 22
 	*/
 	maxBytesToGetPOC = 22
+ 	NALUTypeSPS        = 7  // Sequence Parameter Set
+    	NALUTypeIDR        = 5  // Instantaneous Decoder Refresh
+    	NALUTypeNonIDR     = 1  // Non-IDR Picture
+    	NALUTypeSEI        = 6  // Supplemental Enhancement Information
+    	NALUTypePrefixNALU = 14 // Prefix NALU
 )
 
 func getPictureOrderCount(buf []byte, sps *SPS, idr bool) (uint32, error) {
