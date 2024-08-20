@@ -1,4 +1,4 @@
-module github.com/GagaKor/mediacommon
+module github.com/bluenviron/mediacommon
 
 go 1.20
 
